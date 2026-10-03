@@ -22,6 +22,7 @@ from apps.reservations.services import (
     SeatUnavailable,
     hold_seats,
 )
+from apps.reservations.throttles import HoldRateThrottle
 
 
 def error(code: str, detail: str, http_status: int, **extra: Any) -> Response:
@@ -50,6 +51,7 @@ class HoldSeatsView(APIView):
     """Hold seats for the authenticated user. All business rules live in `hold_seats`."""
 
     permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [HoldRateThrottle]
 
     def post(self, request: Any, event_id: int) -> Response:
         event = get_object_or_404(Event, pk=event_id)

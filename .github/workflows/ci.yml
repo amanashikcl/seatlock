@@ -28,6 +28,16 @@ jobs:
           --health-timeout 3s
           --health-retries 10
 
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
     # Throwaway values: the real .env is never in the repo.
     env:
       SECRET_KEY: ci-only-not-a-real-secret-key-0123456789abcdef

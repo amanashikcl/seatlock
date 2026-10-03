@@ -137,6 +137,10 @@ STATIC_URL = "static/"
 
 
 REDIS_URL = env("REDIS_URL")
+
+# Hold attempts allowed per user per window (rate limiting, see apps/core/ratelimit.py).
+HOLD_RATE_LIMIT = 10
+HOLD_RATE_WINDOW_SECONDS = 60
 CELERY_BROKER_URL = env("CELERY_BROKER_URL")
 # Shared secret with the payment provider; signs every webhook. Required, no default.
 PAYMENT_WEBHOOK_SECRET = env("PAYMENT_WEBHOOK_SECRET")
