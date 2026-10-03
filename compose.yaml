@@ -1,14 +1,25 @@
+# Settings shared by everything that runs our Django code: api, worker, beat.
+x-app: &app
+  build: .
+  restart: unless-stopped
+  environment:
+    SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
+    ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
+    SECURE_SSL_REDIRECT: "False"
+    DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    REDIS_URL: redis://redis:6379/0
+    CELERY_BROKER_URL: amqp://${RABBITMQ_DEFAULT_USER:?set in .env}:${RABBITMQ_DEFAULT_PASS:?set in .env}@rabbitmq:5672//
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+    rabbitmq:
+      condition: service_healthy
+
 services:
   api:
-    build: .
-    restart: unless-stopped
-    environment:
-      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
-      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
-      SECURE_SSL_REDIRECT: "False"
-      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-      REDIS_URL: redis://redis:6379/0
-      CELERY_BROKER_URL: amqp://${RABBITMQ_DEFAULT_USER:?set in .env}:${RABBITMQ_DEFAULT_PASS:?set in .env}@rabbitmq:5672//
+    <<: *app
     ports:
       - "127.0.0.1:8000:8000"
     healthcheck:
@@ -17,13 +28,16 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
+
+  # Takes jobs off the RabbitMQ queue and runs them.
+  worker:
+    <<: *app
+    command: ["celery", "-A", "config", "worker", "--loglevel=INFO", "--concurrency=2"]
+
+  # The scheduler: puts a message on the queue on a timer. Run exactly ONE of these.
+  beat:
+    <<: *app
+    command: ["celery", "-A", "config", "beat", "--loglevel=INFO", "--schedule=/tmp/celerybeat-schedule"]
 
   db:
     image: postgres:16
@@ -62,6 +76,7 @@ services:
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:?set RABBITMQ_DEFAULT_PASS in .env}
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+      - ./docker/rabbitmq/seatlock.conf:/etc/rabbitmq/conf.d/20-seatlock.conf:ro
     ports:
       - "127.0.0.1:5672:5672"
       - "127.0.0.1:15672:15672"
