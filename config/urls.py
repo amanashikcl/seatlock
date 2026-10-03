@@ -24,6 +24,4 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("healthz", health.healthz, name="healthz"),
     path("readyz", health.readyz, name="readyz"),
-
 ]
-
