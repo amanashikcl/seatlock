@@ -7,6 +7,8 @@ from django.utils import timezone
 from apps.accounts.models import User
 from apps.accounts.roles import Role
 from apps.events.models import Event, Seat
+from apps.reservations.models import Reservation
+from apps.reservations.services import HOLD_DURATION, hold_seats
 
 
 def make_user(n: int) -> User:
@@ -31,3 +33,10 @@ def make_seats(event: Event, count: int) -> list[Seat]:
         Seat.objects.create(event=event, section="A", row="1", number=i + 1, price_cents=5000)
         for i in range(count)
     ]
+
+
+def make_hold(event: Event, n: int, seconds_past_expiry: int) -> Reservation:
+    """A hold whose window ended `seconds_past_expiry` ago (negative: still running)."""
+    seat = Seat.objects.create(event=event, section="B", row="1", number=n, price_cents=5000)
+    placed_at = timezone.now() - HOLD_DURATION - timedelta(seconds=seconds_past_expiry)
+    return hold_seats(user=make_user(n), event=event, seat_ids=[seat.id], now=placed_at)

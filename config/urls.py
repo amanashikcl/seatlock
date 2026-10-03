@@ -24,6 +24,8 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/v1/auth/", include("apps.accounts.urls")),
     path("api/v1/events/", include("apps.events.urls")),
+    path("api/v1/events/", include("apps.reservations.urls")),
+    path("api/v1/", include("apps.payments.urls")),
     path("healthz", health.healthz, name="healthz"),
     path("readyz", health.readyz, name="readyz"),
 ]

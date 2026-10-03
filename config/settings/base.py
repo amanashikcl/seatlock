@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "apps.accounts",
     "apps.events",
     "apps.reservations",
+    "apps.payments",
     "rest_framework",
 ]
 
@@ -137,6 +138,8 @@ STATIC_URL = "static/"
 
 REDIS_URL = env("REDIS_URL")
 CELERY_BROKER_URL = env("CELERY_BROKER_URL")
+# Shared secret with the payment provider; signs every webhook. Required, no default.
+PAYMENT_WEBHOOK_SECRET = env("PAYMENT_WEBHOOK_SECRET")
 
 # Celery (background jobs). Read by config/celery.py via the CELERY_ prefix.
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True

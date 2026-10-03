@@ -17,6 +17,10 @@ class ReservationNotFound(ReservationError):
     """No reservation has this id."""
 
 
+class PaymentAmountMismatch(ReservationError):
+    """The amount paid does not equal the reservation total."""
+
+
 class ReservationNotConfirmable(ReservationError):
     """The reservation can no longer be paid for. `reason` says why (expired/cancelled/late)."""
 
@@ -26,13 +30,16 @@ class ReservationNotConfirmable(ReservationError):
 
 
 @transaction.atomic
-def confirm_reservation(*, reservation_id: uuid.UUID, now: datetime | None = None) -> Reservation:
+def confirm_reservation(
+    *, reservation_id: uuid.UUID, paid_cents: int | None = None, now: datetime | None = None
+) -> Reservation:
     """Mark a held reservation as confirmed (paid). Idempotent.
 
     The reservation row is locked first. The expiry sweeper skips locked rows, so the two can
     never both act: if the sweeper wins, we see `expired` and refuse; if we win, it skips us.
     Payment is accepted until `expires_at + HOLD_GRACE`, the same moment the sweeper starts
-    expiring, so the cut-off is deterministic.
+    expiring, so the cut-off is deterministic. If `paid_cents` is given it must equal the
+    reservation total (checked under the lock), so a partial payment cannot confirm.
     """
     now = now or timezone.now()
     try:
@@ -46,6 +53,8 @@ def confirm_reservation(*, reservation_id: uuid.UUID, now: datetime | None = Non
         raise ReservationNotConfirmable(reservation.status)  # expired or cancelled
     if now > reservation.expires_at + HOLD_GRACE:
         raise ReservationNotConfirmable("late")  # too late; the sweeper will release the seats
+    if paid_cents is not None and paid_cents != reservation.total_cents:
+        raise PaymentAmountMismatch(f"paid {paid_cents}, expected {reservation.total_cents}")
 
     reservation.status = ReservationStatus.CONFIRMED
     reservation.save(update_fields=["status"])

@@ -93,3 +93,13 @@ cut-off is a fixed instant, not "whenever the sweeper last ran" (cost: seats sta
 minute longer). Confirming a confirmed reservation is a no-op (webhooks are delivered more than
 once). A payment that arrives too late is rejected with a reason; refunding it is handled by the
 webhook layer. We do not try to re-claim seats after expiry, since someone else may hold them.
+
+## 14. Webhooks: signed, stored once, then processed idempotently
+Incoming payment webhooks are authenticated with HMAC-SHA256 over `"<timestamp>.<raw body>"`,
+compared in constant time, with a 5-minute timestamp window against replays. Each event is stored
+in `WebhookEvent` (UNIQUE provider event id, so duplicates are caught by the database) *before* it
+is processed; processing is idempotent, so a crash between the two is repaired by replay. Business
+failures (unknown reservation, too late, wrong amount) are acknowledged and recorded as `failed`
+with a reason for follow-up; only unexpected errors leave an event `received` to be retried.
+The amount is checked against the reservation total under the row lock. Unknown event types are
+stored and acknowledged so a provider adding types cannot cause endless retries.

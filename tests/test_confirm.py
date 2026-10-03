@@ -9,6 +9,7 @@ from django.utils import timezone
 
 from apps.events.models import Event, Seat
 from apps.reservations.confirmation import (
+    PaymentAmountMismatch,
     ReservationNotConfirmable,
     ReservationNotFound,
     confirm_reservation,
@@ -132,3 +133,19 @@ def test_confirm_racing_the_sweeper_never_leaves_an_inconsistent_reservation(
         paid = hold.status == ReservationStatus.CONFIRMED and active == 1
         released = hold.status == ReservationStatus.EXPIRED and active == 0
         assert paid or released
+
+
+@pytest.mark.django_db
+def test_wrong_paid_amount_is_rejected_and_nothing_changes(event: Event) -> None:
+    hold = make_hold(event, 1, seconds_past_expiry=-300)
+    with pytest.raises(PaymentAmountMismatch):
+        confirm_reservation(reservation_id=hold.id, paid_cents=4999)
+    hold.refresh_from_db()
+    assert hold.status == ReservationStatus.HELD
+
+
+@pytest.mark.django_db
+def test_correct_paid_amount_confirms(event: Event) -> None:
+    hold = make_hold(event, 1, seconds_past_expiry=-300)
+    confirmed = confirm_reservation(reservation_id=hold.id, paid_cents=5000)
+    assert confirmed.status == ReservationStatus.CONFIRMED
