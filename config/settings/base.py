@@ -155,6 +155,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.reservations.tasks.expire_lapsed_holds",
         "schedule": 30.0,
     },
+    "replay-stuck-webhooks": {
+        "task": "apps.payments.tasks.replay_stuck_webhooks",
+        "schedule": 60.0,
+    },
 }
 
 
