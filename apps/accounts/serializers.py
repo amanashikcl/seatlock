@@ -47,3 +47,12 @@ class RegisterSerializer(serializers.ModelSerializer):
             )
         except IntegrityError as exc:  # lost a race with a concurrent sign-up
             raise serializers.ValidationError({"email": [EMAIL_TAKEN]}) from exc
+
+
+class RoleUpdateSerializer(serializers.ModelSerializer):
+    """Admin-only: change a user's role. Nothing else is writable."""
+
+    class Meta:
+        model = User
+        fields = ["id", "email", "role"]
+        read_only_fields = ["id", "email"]

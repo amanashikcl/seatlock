@@ -1,11 +1,17 @@
 from __future__ import annotations
 
-from typing import cast
+from typing import Any, cast
 
 from rest_framework import generics, permissions
+from rest_framework.exceptions import ValidationError
 
 from apps.accounts.models import User
-from apps.accounts.serializers import RegisterSerializer, UserSerializer
+from apps.accounts.permissions import IsAdmin
+from apps.accounts.serializers import (
+    RegisterSerializer,
+    RoleUpdateSerializer,
+    UserSerializer,
+)
 
 
 class RegisterView(generics.CreateAPIView):
@@ -23,3 +29,18 @@ class MeView(generics.RetrieveAPIView):
 
     def get_object(self) -> User:
         return cast(User, self.request.user)
+
+
+class UserRoleView(generics.UpdateAPIView):
+    """Admin-only: promote or demote a user. This is how organizers are created."""
+
+    queryset = User.objects.all()
+    serializer_class = RoleUpdateSerializer
+    permission_classes = [IsAdmin]
+    http_method_names = ["patch", "options"]
+
+    def perform_update(self, serializer: Any) -> None:
+        if serializer.instance.pk == self.request.user.pk:
+            # Prevents locking the platform out of its last admin by accident.
+            raise ValidationError("Admins cannot change their own role.")
+        serializer.save()
