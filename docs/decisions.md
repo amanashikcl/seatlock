@@ -43,3 +43,11 @@ order, then checks availability. Ordered locking prevents deadlocks when two buy
 same seats in opposite orders. This is the correctness baseline; optimistic and Redis-based
 strategies are benchmarked against it later. The unique index remains the backstop either way.
 Service functions raise domain exceptions (no HTTP), so views and workers can both call them.
+
+## 8. Expiry is a plain function with SKIP LOCKED, scheduled separately
+`expire_holds` finds lapsed `held` reservations (via a partial index), locks them with
+`FOR UPDATE SKIP LOCKED`, and flips the reservation and its seat claims in one short
+transaction, in batches. Skipping locked rows means concurrent sweepers (or a payment being
+confirmed) never collide or stall. It is idempotent, so retries are safe. It knows nothing
+about Celery; the scheduler (Step 2.5) just calls it. Trade-off: a seat stays blocked until
+the next sweep. Refinement for later: expire stale claims inline inside `hold_seats`.
