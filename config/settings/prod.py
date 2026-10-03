@@ -21,3 +21,6 @@ MAILERS = {
 }
 
 SILENCED_SYSTEM_CHECKS = ["security.W005", "security.W021"]
+
+# Probes arrive over plain HTTP from inside the network; do not redirect them.
+SECURE_REDIRECT_EXEMPT = [r"^healthz$", r"^readyz$"]
