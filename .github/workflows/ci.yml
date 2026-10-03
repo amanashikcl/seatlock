@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: seatlock
+          POSTGRES_USER: seatlock
+          POSTGRES_PASSWORD: ci-only-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U seatlock -d seatlock"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    # Throwaway values: the real .env is never in the repo.
+    env:
+      SECRET_KEY: ci-only-not-a-real-secret-key-0123456789abcdef
+      DATABASE_URL: postgres://seatlock:ci-only-password@localhost:5432/seatlock
+      REDIS_URL: redis://localhost:6379/0
+      CELERY_BROKER_URL: amqp://guest:guest@localhost:5672//
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Lint (ruff)
+        if: success() || failure()
+        run: ruff check .
+
+      - name: Format check (ruff)
+        if: success() || failure()
+        run: ruff format --check .
+
+      - name: Type check (mypy)
+        if: success() || failure()
+        run: mypy .
+
+      - name: Tests (pytest)
+        if: success() || failure()
+        run: pytest --cov --cov-report=term-missing
