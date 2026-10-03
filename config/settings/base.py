@@ -77,12 +77,9 @@ WSGI_APPLICATION = "config.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
-}
+DATABASES = {"default": env.db("DATABASE_URL")}  # required: no default on purpose
+DATABASES["default"]["CONN_MAX_AGE"] = 60  # reuse connections instead of reconnecting per request
+DATABASES["default"]["CONN_HEALTH_CHECKS"] = True  # verify a reused connection is alive first
 
 
 # Password validation
