@@ -20,3 +20,6 @@ htmlcov/
 
 # Editors
 .idea/
+
+# Build artifacts (created by pip install -e)
+*.egg-info/
