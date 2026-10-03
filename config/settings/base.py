@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "apps.core",
     "apps.accounts",
     "apps.events",
+    "apps.reservations",
     "rest_framework",
 ]
 
