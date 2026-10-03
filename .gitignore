@@ -23,3 +23,6 @@ htmlcov/
 
 # Build artifacts (created by pip install -e)
 *.egg-info/
+
+# local debugging output (can contain connection strings)
+error*.txt
