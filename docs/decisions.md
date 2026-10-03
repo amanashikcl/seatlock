@@ -68,3 +68,10 @@ queues) and uses global QoS for prefetch limits. RabbitMQ 4 rejects both unless
 `docker/rabbitmq/seatlock.conf` does. The feature will be removed in a future
 RabbitMQ major, so the image stays on 4.x. Exit plan: move task queues to quorum queues and
 disable Celery remote control/gossip, which removes the need for the exception.
+
+## 11. API authorization: roles for actions, ownership for objects
+Who may *do* something is a role check (`IsOrganizer`); who may change a *specific* event is an
+object-level check (`IsOwnerOrAdmin`). Role checks alone would let one organizer edit another's
+event. The organizer on a new event always comes from the authenticated user, never the request
+body. Events expose no PUT or DELETE (cancelling will be an explicit action), and all list
+endpoints are paginated by default with a stable ordering.
