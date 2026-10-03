@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "apps.core",
+    "apps.accounts",
 ]
 
 MIDDLEWARE = [
@@ -83,6 +84,10 @@ DATABASES["default"]["CONN_MAX_AGE"] = 60  # reuse connections instead of reconn
 DATABASES["default"]["CONN_HEALTH_CHECKS"] = True  # verify a reused connection is alive first
 # Fail in seconds with a clear error instead of hanging if Postgres is unreachable.
 DATABASES["default"]["OPTIONS"] = {"connect_timeout": 5}
+
+
+# Custom user model: must be set before the first migrate.
+AUTH_USER_MODEL = "accounts.User"
 
 
 # Password validation
