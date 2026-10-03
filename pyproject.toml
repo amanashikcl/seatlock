@@ -57,7 +57,7 @@ ignore_missing_imports = true
 
 # DRF ships no type info, so its classes are Any. Allow subclassing them only where we do.
 [[tool.mypy.overrides]]
-module = ["apps.accounts.serializers", "apps.accounts.views"]
+module = ["apps.accounts.serializers", "apps.accounts.views", "apps.accounts.permissions"]
 disallow_subclassing_any = false
 
 [tool.django-stubs]
