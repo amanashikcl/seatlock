@@ -8,6 +8,7 @@ version = "0.1.0"
 description = "Flash-sale ticketing backend that stays correct under contention."
 requires-python = ">=3.12"
 dependencies = [
+    "celery>=5.4",
     "django>=6.1,<6.2",
     "django-environ>=0.12",
     "gunicorn>=23.0",
@@ -52,7 +53,7 @@ module = "environ.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["rest_framework.*", "rest_framework_simplejwt.*"]
+module = ["rest_framework.*", "rest_framework_simplejwt.*", "celery.*"]
 ignore_missing_imports = true
 
 # DRF ships no type info, so its classes are Any. Allow subclassing them only where we do.
@@ -67,3 +68,8 @@ django_settings_module = "config.settings.test"
 DJANGO_SETTINGS_MODULE = "config.settings.test"
 addopts = "--strict-markers -ra"
 testpaths = ["tests"]
+
+# Celery's @shared_task is untyped, so decorated task functions look untyped to mypy.
+[[tool.mypy.overrides]]
+module = ["apps.reservations.tasks"]
+disallow_untyped_decorators = false

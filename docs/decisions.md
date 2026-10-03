@@ -51,3 +51,20 @@ transaction, in batches. Skipping locked rows means concurrent sweepers (or a pa
 confirmed) never collide or stall. It is idempotent, so retries are safe. It knows nothing
 about Celery; the scheduler (Step 2.5) just calls it. Trade-off: a seat stays blocked until
 the next sweep. Refinement for later: expire stale claims inline inside `hold_seats`.
+
+## 9. Background work: Celery with RabbitMQ, scheduled by beat
+Periodic and slow jobs run in Celery workers, not in web requests. RabbitMQ is the broker
+(durable delivery, acknowledgements) rather than Redis, so a cache restart cannot lose queued
+jobs and a cache problem cannot take down the queue. `acks_late` plus
+`reject_on_worker_lost` redeliver a task if a worker dies mid-run; that is only safe because
+tasks are idempotent. Prefetch is 1 and no result backend is used. Tasks are thin wrappers
+around plain tested functions. A test checks every beat entry names a registered task,
+because a typo there fails silently. Beat runs as a single instance.
+
+## 10. RabbitMQ 4 needs two deprecated features permitted for Celery (known tech debt)
+Celery's worker declares transient non-exclusive queues (remote-control and gossip reply
+queues) and uses global QoS for prefetch limits. RabbitMQ 4 rejects both unless
+`deprecated_features.permit.transient_nonexcl_queues` and `...global_qos` are set, which
+`docker/rabbitmq/seatlock.conf` does. The feature will be removed in a future
+RabbitMQ major, so the image stays on 4.x. Exit plan: move task queues to quorum queues and
+disable Celery remote control/gossip, which removes the need for the exception.

@@ -138,6 +138,22 @@ STATIC_URL = "static/"
 REDIS_URL = env("REDIS_URL")
 CELERY_BROKER_URL = env("CELERY_BROKER_URL")
 
+# Celery (background jobs). Read by config/celery.py via the CELERY_ prefix.
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_TIMEZONE = "UTC"
+CELERY_TASK_ACKS_LATE = True  # ack after the task finishes, so a crash means redelivery
+CELERY_TASK_REJECT_ON_WORKER_LOST = True
+CELERY_WORKER_CANCEL_LONG_RUNNING_TASKS_ON_CONNECTION_LOSS = True  # redeliver, not hang
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1  # take one message at a time; no hoarding
+CELERY_TASK_IGNORE_RESULT = True  # nothing reads results, so no result backend to run
+CELERY_TASK_TIME_LIMIT = 120  # hard stop for a stuck task, in seconds
+CELERY_BEAT_SCHEDULE = {
+    "expire-lapsed-holds": {
+        "task": "apps.reservations.tasks.expire_lapsed_holds",
+        "schedule": 30.0,
+    },
+}
+
 
 # REST API. Secure by default: every endpoint needs a valid JWT unless it opts out.
 REST_FRAMEWORK = {
