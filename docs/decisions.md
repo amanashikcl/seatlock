@@ -75,3 +75,21 @@ object-level check (`IsOwnerOrAdmin`). Role checks alone would let one organizer
 event. The organizer on a new event always comes from the authenticated user, never the request
 body. Events expose no PUT or DELETE (cancelling will be an explicit action), and all list
 endpoints are paginated by default with a stable ordering.
+
+## 12. Holds API: thin view, domain errors mapped to stable codes
+`POST /events/<id>/holds/` validates only the request shape, calls `hold_seats`, and translates
+domain exceptions: `seat_unavailable` and `sales_not_open` are 409 (valid request, conflicting
+state), `invalid_selection` is 400. Every error carries a machine-readable `code`. The seat map
+computes `available` with a NOT EXISTS over active claims, so there is no flag to drift (a lapsed
+but unswept hold still shows unavailable for up to one sweep interval). Known gaps: retries after
+a timeout need an Idempotency-Key (with payments), and rate limiting needs a shared counter (with
+the Redis step).
+
+## 13. Confirming a payment: row lock, grace period, idempotent
+`confirm_reservation` locks the reservation row (`FOR UPDATE`); the expiry sweeper uses
+`SKIP LOCKED`, so a reservation can never be both confirmed and expired. Payments are accepted
+until `expires_at + 60s`, and the sweeper only expires holds after that same moment, so the
+cut-off is a fixed instant, not "whenever the sweeper last ran" (cost: seats stay blocked a
+minute longer). Confirming a confirmed reservation is a no-op (webhooks are delivered more than
+once). A payment that arrives too late is rejected with a reason; refunding it is handled by the
+webhook layer. We do not try to re-claim seats after expiry, since someone else may hold them.
