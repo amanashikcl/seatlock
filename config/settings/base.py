@@ -81,6 +81,8 @@ WSGI_APPLICATION = "config.wsgi.application"
 DATABASES = {"default": env.db("DATABASE_URL")}  # required: no default on purpose
 DATABASES["default"]["CONN_MAX_AGE"] = 60  # reuse connections instead of reconnecting per request
 DATABASES["default"]["CONN_HEALTH_CHECKS"] = True  # verify a reused connection is alive first
+# Fail in seconds with a clear error instead of hanging if Postgres is unreachable.
+DATABASES["default"]["OPTIONS"] = {"connect_timeout": 5}
 
 
 # Password validation
