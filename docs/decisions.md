@@ -36,3 +36,10 @@ it flips in the same transaction that expires or cancels the reservation. Reject
 triggers/exclusion constraints (harder to test), deleting released rows (loses history).
 Known gap: "seat belongs to the reservation's event" is a cross-table rule, enforced in the
 service layer instead.
+
+## 7. Baseline booking strategy: pessimistic row locks, ordered by id
+`hold_seats` locks the requested `Seat` rows with `SELECT ... FOR UPDATE` in ascending id
+order, then checks availability. Ordered locking prevents deadlocks when two buyers want the
+same seats in opposite orders. This is the correctness baseline; optimistic and Redis-based
+strategies are benchmarked against it later. The unique index remains the backstop either way.
+Service functions raise domain exceptions (no HTTP), so views and workers can both call them.
