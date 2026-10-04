@@ -2,7 +2,8 @@ import pytest
 import redis
 
 from apps.core import ratelimit
-from apps.core.ratelimit import check_rate_limit, get_client
+from apps.core.ratelimit import check_rate_limit
+from apps.core.redis_client import get_client
 
 
 def test_requests_within_the_limit_are_allowed_then_blocked() -> None:

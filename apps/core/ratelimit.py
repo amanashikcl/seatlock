@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from functools import lru_cache
 from typing import cast
 
 import redis
-from django.conf import settings
+
+from apps.core.redis_client import get_client
 
 logger = logging.getLogger(__name__)
 
@@ -30,17 +30,6 @@ return {count, ttl}
 class Decision:
     allowed: bool
     retry_after: int  # seconds until the window resets (0 when allowed)
-
-
-@lru_cache(maxsize=1)
-def get_client() -> redis.Redis:
-    """One shared client (it manages its own connection pool). Short timeouts: fail fast."""
-    return redis.Redis.from_url(
-        settings.REDIS_URL,
-        socket_connect_timeout=0.2,
-        socket_timeout=0.2,
-        decode_responses=True,
-    )
 
 
 def check_rate_limit(key: str, *, limit: int, window_seconds: int) -> Decision:

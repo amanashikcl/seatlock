@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from django.db import transaction
 from django.utils import timezone
 
+from apps.reservations import gate
 from apps.reservations.models import Reservation, ReservationSeat, ReservationStatus
 
 logger = logging.getLogger(__name__)
@@ -38,7 +39,12 @@ def expire_holds(*, now: datetime | None = None, batch_size: int = DEFAULT_BATCH
     )
     if not ids:
         return 0
+    seat_ids = list(
+        ReservationSeat.objects.filter(reservation_id__in=ids).values_list("seat_id", flat=True)
+    )
     Reservation.objects.filter(id__in=ids).update(status=ReservationStatus.EXPIRED)
     ReservationSeat.objects.filter(reservation_id__in=ids).update(is_active=False)
+    # After the commit, so Redis never says "free" for seats the database still holds.
+    transaction.on_commit(lambda: gate.forget(seat_ids))
     logger.info("expired %d lapsed holds", len(ids))
     return len(ids)

@@ -7,9 +7,11 @@ import uuid
 from datetime import datetime
 from typing import Any
 
+from django.db import transaction
 from django.utils import timezone
 
 from apps.payments.models import WebhookEvent, WebhookStatus
+from apps.reservations import gate
 from apps.reservations.confirmation import (
     PaymentAmountMismatch,
     ReservationNotConfirmable,
@@ -56,13 +58,19 @@ def process_event(event: WebhookEvent, *, now: datetime | None = None) -> Webhoo
         return _finish(event, WebhookStatus.FAILED, "malformed_payload", now)
 
     try:
-        confirm_reservation(reservation_id=reservation_id, paid_cents=paid_cents, now=now)
+        reservation = confirm_reservation(
+            reservation_id=reservation_id, paid_cents=paid_cents, now=now
+        )
     except ReservationNotFound:
         return _finish(event, WebhookStatus.FAILED, "reservation_not_found", now)
     except ReservationNotConfirmable as exc:
         return _finish(event, WebhookStatus.FAILED, f"needs_refund:{exc.reason}", now)
     except PaymentAmountMismatch:
         return _finish(event, WebhookStatus.FAILED, "amount_mismatch", now)
+    # Tell the gate only after the database commit, so a rollback cannot leave seats
+    # wrongly marked sold. (Runs at once when no transaction is open.)
+    seat_ids = list(reservation.items.values_list("seat_id", flat=True))
+    transaction.on_commit(lambda: gate.mark_sold(seat_ids))
     return _finish(event, WebhookStatus.PROCESSED, "", now)
 
 

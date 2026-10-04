@@ -9,6 +9,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.events.models import Event, Seat
+from apps.reservations import gate
 from apps.reservations.models import ReservationSeat
 from apps.reservations.pagination import SeatPagination
 from apps.reservations.serializers import (
@@ -57,16 +58,32 @@ class HoldSeatsView(APIView):
         event = get_object_or_404(Event, pk=event_id)
         body = HoldRequestSerializer(data=request.data)
         body.is_valid(raise_exception=True)
-        try:
-            reservation = hold_seats(
-                user=request.user, event=event, seat_ids=body.validated_data["seat_ids"]
+        seat_ids = body.validated_data["seat_ids"]
+
+        # Fast path: Redis says someone already has these seats -> no database work at all.
+        claim = gate.claim(seat_ids)
+        if not claim.ok:
+            return error(
+                "seat_unavailable",
+                "One or more seats are not available",
+                status.HTTP_409_CONFLICT,
+                seat_ids=list(claim.conflicts),
             )
+        try:
+            reservation = hold_seats(user=request.user, event=event, seat_ids=seat_ids)
         except SeatUnavailable as exc:
+            gate.release(claim)
             return error(
                 "seat_unavailable", str(exc), status.HTTP_409_CONFLICT, seat_ids=exc.seat_ids
             )
         except SalesNotOpen as exc:
+            gate.release(claim)
             return error("sales_not_open", str(exc), status.HTTP_409_CONFLICT)
         except InvalidSeatSelection as exc:
+            gate.release(claim)
             return error("invalid_selection", str(exc), status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            gate.release(claim)  # never leave seats blocked because of our own bug
+            raise
+        gate.extend(claim)
         return Response(ReservationSerializer(reservation).data, status=status.HTTP_201_CREATED)
