@@ -1,0 +1,9 @@
+# Prometheus pulls ("scrapes") numbers from our API every few seconds.
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: seatlock-api
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["api:8000"]

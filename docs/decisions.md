@@ -103,3 +103,19 @@ failures (unknown reservation, too late, wrong amount) are acknowledged and reco
 with a reason for follow-up; only unexpected errors leave an event `received` to be retried.
 The amount is checked against the reservation total under the row lock. Unknown event types are
 stored and acknowledged so a provider adding types cannot cause endless retries.
+
+## 15. Redis in front of Postgres: rate limit and seat gate, both advisory
+Redis protects the database from abuse and wasted work but never decides who owns a seat; the
+partial unique index and row locks in Postgres do. The per-user rate limiter (fixed window, one
+atomic Lua script) and the seat gate (all-or-nothing claim with a 30 s in-flight TTL, extended to
+the hold length after commit, cleared on expiry, marked sold after payment) both fail open: if
+Redis is down or has lost keys, requests fall through to Postgres, which answers correctly just
+more slowly. Claims carry an owner token so a late cleanup cannot delete another buyer's claim.
+Measured effect on a 300-buyer flash sale: see `docs/benchmarks.md`.
+
+## 16. Observability: Prometheus metrics with bounded labels
+Metrics are exposed at `/metrics` using prometheus-client in multiprocess mode, because gunicorn
+runs several worker processes. Labels have a few fixed values only: routes are URL templates and
+unknown paths share one label, so ids or probing bots cannot create unbounded time series.
+`/metrics` has no authentication, so it must be blocked at the proxy or network in a real
+deployment (here the port is bound to localhost). Celery workers are not scraped yet.

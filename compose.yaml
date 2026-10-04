@@ -4,7 +4,8 @@ x-app: &app
   restart: unless-stopped
   environment:
     SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
-    ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
+    # `api` is the name other containers (Prometheus, the load generator) use to reach us.
+    ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1},api
     SECURE_SSL_REDIRECT: "False"
     DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
     REDIS_URL: redis://redis:6379/0
@@ -60,6 +61,42 @@ services:
       api:
         condition: service_healthy
 
+  # Metrics storage + dashboards. Only start when asked for:
+  #   docker compose --profile observability up -d
+  prometheus:
+    profiles: ["observability"]
+    image: prom/prometheus:v2.53.0
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  grafana:
+    profiles: ["observability"]
+    image: grafana/grafana:11.2.0
+    restart: unless-stopped
+    environment:
+      # Local demo only (port is bound to 127.0.0.1): anyone on this machine can view.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+    volumes:
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - prometheus
+
   db:
     image: postgres:16
     restart: unless-stopped
@@ -111,3 +148,5 @@ services:
 volumes:
   postgres_data:
   rabbitmq_data:
+  prometheus_data:
+  grafana_data:
