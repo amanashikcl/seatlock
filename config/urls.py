@@ -18,7 +18,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 
-from apps.core import health
+from apps.core import health, metrics
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -28,4 +28,5 @@ urlpatterns = [
     path("api/v1/", include("apps.payments.urls")),
     path("healthz", health.healthz, name="healthz"),
     path("readyz", health.readyz, name="readyz"),
+    path("metrics", metrics.metrics_view, name="metrics"),
 ]

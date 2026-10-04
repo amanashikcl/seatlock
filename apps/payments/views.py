@@ -10,6 +10,7 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
+from apps.core.metrics import WEBHOOKS
 from apps.payments.processing import process_event, record_event
 from apps.payments.signature import InvalidSignature, verify
 
@@ -39,6 +40,7 @@ def payment_webhook(request: HttpRequest) -> HttpResponse:
         verify(raw, request.headers.get(SIGNATURE_HEADER, ""), settings.PAYMENT_WEBHOOK_SECRET)
     except InvalidSignature:
         logger.warning("webhook rejected: bad signature")
+        WEBHOOKS.labels("bad_signature").inc()
         return _error(401, "invalid_signature")
 
     try:
@@ -46,12 +48,16 @@ def payment_webhook(request: HttpRequest) -> HttpResponse:
         event_id = body["id"]
         event_type = body["type"]
     except (ValueError, KeyError, TypeError):
+        WEBHOOKS.labels("bad_payload").inc()
         return _error(400, "invalid_payload")
     if not (isinstance(event_id, str) and isinstance(event_type, str) and event_id):
+        WEBHOOKS.labels("bad_payload").inc()
         return _error(400, "invalid_payload")
     if len(event_id) > 100 or len(event_type) > 100:
+        WEBHOOKS.labels("bad_payload").inc()
         return _error(400, "invalid_payload")
 
-    event, _ = record_event(provider_event_id=event_id, event_type=event_type, payload=body)
+    event, created = record_event(provider_event_id=event_id, event_type=event_type, payload=body)
     event = process_event(event)  # an unexpected error here -> 500 -> provider retries
+    WEBHOOKS.labels(event.status if created else "duplicate").inc()
     return JsonResponse({"status": event.status})

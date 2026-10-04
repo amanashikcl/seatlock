@@ -15,6 +15,7 @@ dependencies = [
     "djangorestframework>=3.16",
     "djangorestframework-simplejwt>=5.5",
     "psycopg[binary]>=3.2",
+    "prometheus-client>=0.20",
     "redis>=5.0",
 ]
 
@@ -47,7 +48,7 @@ select = ["E", "F", "I", "B", "UP", "S", "DJ"]
 
 [tool.mypy]
 python_version = "3.12"
-exclude = ["^loadtest/"]  # Locust is a separate tool, not part of the app
+exclude = ["^loadtest/", "^gunicorn\\.conf\\.py$"]  # separate tools / server config, not app code
 strict = true
 plugins = ["mypy_django_plugin.main"]
 
@@ -84,6 +85,11 @@ addopts = "--strict-markers -ra"
 testpaths = ["tests"]
 
 # Celery's @shared_task is untyped, so decorated task functions look untyped to mypy.
+# prometheus_client's multiprocess helper has no type annotations.
+[[tool.mypy.overrides]]
+module = ["apps.core.metrics"]
+disallow_untyped_calls = false
+
 [[tool.mypy.overrides]]
 module = ["apps.reservations.tasks", "apps.payments.tasks"]
 disallow_untyped_decorators = false
