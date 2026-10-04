@@ -9,6 +9,9 @@ x-app: &app
     DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
     REDIS_URL: redis://redis:6379/0
     PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:?set in .env}
+    # Normal defaults; the load test overrides them (see docs/benchmarks.md).
+    HOLD_RATE_LIMIT: ${HOLD_RATE_LIMIT:-10}
+    SEAT_GATE_ENABLED: ${SEAT_GATE_ENABLED:-true}
     CELERY_BROKER_URL: amqp://${RABBITMQ_DEFAULT_USER:?set in .env}:${RABBITMQ_DEFAULT_PASS:?set in .env}@rabbitmq:5672//
   depends_on:
     db:
@@ -39,6 +42,23 @@ services:
   beat:
     <<: *app
     command: ["celery", "-A", "config", "beat", "--loglevel=INFO", "--schedule=/tmp/celerybeat-schedule"]
+
+  # Load generator (Locust). Only starts when asked for: docker compose --profile loadtest run ...
+  locust:
+    profiles: ["loadtest"]
+    image: locustio/locust:2.32.0
+    volumes:
+      - ./loadtest:/mnt/locust
+    environment:
+      EVENT_ID: ${EVENT_ID:-}
+      HOT_SEATS: ${HOT_SEATS:-50}
+    command: >
+      -f /mnt/locust/locustfile.py --headless
+      -u ${LOAD_USERS:-300} -r ${LOAD_RATE:-20} -t ${LOAD_DURATION:-90s}
+      --host http://api:8000 --csv /mnt/locust/results/run
+    depends_on:
+      api:
+        condition: service_healthy
 
   db:
     image: postgres:16

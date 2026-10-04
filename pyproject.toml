@@ -43,9 +43,11 @@ select = ["E", "F", "I", "B", "UP", "S", "DJ"]
 [tool.ruff.lint.per-file-ignores]
 "config/settings/*.py" = ["F403", "F405"]
 "tests/**" = ["S101", "S105", "S106"]  # asserts and fake test passwords are fine
+"loadtest/**" = ["S105", "S106", "S311"]  # throwaway password, non-crypto random
 
 [tool.mypy]
 python_version = "3.12"
+exclude = ["^loadtest/"]  # Locust is a separate tool, not part of the app
 strict = true
 plugins = ["mypy_django_plugin.main"]
 

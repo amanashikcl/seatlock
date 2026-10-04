@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from typing import cast
 
 import redis
+from django.conf import settings
 
 from apps.core.redis_client import get_client
 from apps.reservations.services import HOLD_DURATION
@@ -74,6 +75,8 @@ def claim(seat_ids: Sequence[int]) -> Claim:
     """Try to claim every seat for the short in-flight window."""
     ids = tuple(sorted(set(seat_ids)))  # sorted + unique: stable, and no self-conflict
     token = uuid.uuid4().hex
+    if not settings.SEAT_GATE_ENABLED:
+        return Claim(token=token, seat_ids=ids, conflicts=())
     try:
         raw = get_client().eval(_CLAIM, len(ids), *_keys(ids), token, IN_FLIGHT_TTL_SECONDS)
     except redis.RedisError:
@@ -127,7 +130,7 @@ def forget(seat_ids: Sequence[int]) -> None:
 
 
 def _run(script: str, claim_: Claim, *args: str | int) -> None:
-    if not claim_.seat_ids:
+    if not claim_.seat_ids or not settings.SEAT_GATE_ENABLED:
         return
     try:
         get_client().eval(script, len(claim_.seat_ids), *_keys(claim_.seat_ids), *args)

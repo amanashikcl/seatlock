@@ -26,3 +26,6 @@ htmlcov/
 
 # local debugging output (can contain connection strings)
 error*.txt
+
+# load test output
+loadtest/results/
